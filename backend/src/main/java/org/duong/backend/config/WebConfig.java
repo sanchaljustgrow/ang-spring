@@ -6,11 +6,19 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
+                .allowedOrigins(
+                        "http://localhost",
+                        "http://localhost:80",
+                        "http://localhost:4200",
+                        "http://127.0.0.1",
+                        "http://ang-spring-frontend" // <-- frontend container name in docker-compose
+                )
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .allowedOrigins("http://localhost:4200")
-                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE");
+                .allowCredentials(true);
     }
 }
