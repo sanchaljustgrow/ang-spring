@@ -21,18 +21,25 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.List;
 import java.util.Optional;
 
 @Configuration
-public class SecurityConfig implements WebMvcConfigurer {
+public class SecurityConfig {
+
     private final UserDetailsServiceImpl userDetailsServiceImpl;
     private final JwtFilter jwtFilter;
     private final RestExceptionFilter restExceptionFilter;
     private final UserService userService;
 
-    public SecurityConfig(UserDetailsServiceImpl userDetailsServiceImpl, JwtFilter jwtFilter, RestExceptionFilter restExceptionFilter, UserService userService) {
+    public SecurityConfig(UserDetailsServiceImpl userDetailsServiceImpl,
+                          JwtFilter jwtFilter,
+                          RestExceptionFilter restExceptionFilter,
+                          UserService userService) {
         this.userDetailsServiceImpl = userDetailsServiceImpl;
         this.jwtFilter = jwtFilter;
         this.restExceptionFilter = restExceptionFilter;
@@ -42,8 +49,9 @@ public class SecurityConfig implements WebMvcConfigurer {
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable());
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource())); // ✅ enable CORS
 
-        http.authorizeRequests(requests -> requests
+        http.authorizeHttpRequests(requests -> requests
                 .requestMatchers("/api/v1/users").hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/v1/likes/**").hasRole("USER")
                 .requestMatchers(HttpMethod.POST, "/api/v1/posts/**").hasAnyRole("STAFF", "ADMIN")
@@ -58,8 +66,28 @@ public class SecurityConfig implements WebMvcConfigurer {
         return http.build();
     }
 
+    // ✅ Define CORS rules
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(
+                "http://localhost:80",
+                "http://localhost:4200",
+                "http://127.0.0.1",
+                "http://ang-spring-frontend"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+            throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
@@ -80,7 +108,8 @@ public class SecurityConfig implements WebMvcConfigurer {
     public AuditorAware auditorAware() {
         return () -> {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if(authentication == null || !authentication.isAuthenticated() || authentication instanceof AnonymousAuthenticationToken) {
+            if (authentication == null || !authentication.isAuthenticated()
+                    || authentication instanceof AnonymousAuthenticationToken) {
                 return Optional.empty();
             }
 
@@ -89,5 +118,4 @@ public class SecurityConfig implements WebMvcConfigurer {
             return Optional.ofNullable(userDTO.getId());
         };
     }
-
 }
